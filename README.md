@@ -7,6 +7,9 @@ For more info [Click](https://en.wikipedia.org/wiki/B-tree#:~:text=In%20computer
 
 ## Depedency
 The implementation depends on Google's [snappy](https://github.com/google/snappy) library for fast compression.
+```
+sudo apt install googletest libgtest-dev
+```
 
 ## Build
 ```bash

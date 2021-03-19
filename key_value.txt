@@ -1,0 +1,68 @@
+1
+number order test
+</>
+ärcher
+German order test
+</>
+index
+CSS: <a href="entry://css">demo</a><br>
+Sound: <br>
+<a href="entry://sound">demo using link</a><br>
+<a href="entry://background sound">BGSound demo</a><br>
+Graphic: <a href="entry://graphic">demo</a><br>
+Chinese link: <a href="entry://中 文">中文</a><br>
+In page link: <a href="entry://#section name">link to view source</a>
+<br>1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br><br>1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>0<br>0<br>
+some dummy lines<p>
+<a name="section name">View Source:</a>
+<a href="source://index">view</a>
+</>
+css
+<head>
+<link rel="stylesheet" type="text/css" href="inline0.css" />
+<link rel="stylesheet" type="text/css" href="inline1.css" />
+</head>
+<body>
+<p id="p0">This line should appear green.</p>
+<p id="p1">This line should appear red</p>
+
+<a href="source://#">Source code</a>
+</body>
+</>
+繁体
+test
+</>
+中 文
+中文内容
+</>
+sound
+Sound test, please click this: <a href="sound://test.spx"><img src="playicon.jpg"></img></a>
+Special character headword sound test: <br>
+<a href="sound://sound with space.spx">1. sound with space</a><br>
+<a href="sound://sound with's.spx">2. sound with's</a><br>
+<a href="sound://test.mp3">3. mp3 sound </a>
+</>
+background sound
+You should be able to use the "speaker" button in the up-right to play audio now
+<BGSound src="/test.spx">
+</>
+graphic
+This entry can show a graphic as this: <img src="/mdict.gif">mdict.gif</img>
+a very large photo: <img src="/1 .jpg">1.jpg</img>
+</>
+internal redirect to "graphic"
+@@@LINK=graphic
+</>
+cross page link with section
+<a href="entry://index#section name">jump</a>
+</>
+sound with space
+
+<a href="sound://sound with space.spx">1. sound with space</a><br>
+</>
+sound with's
+<a href="sound://sound with's.spx">2. sound with's</a>
+</>
+content hide/show
+<div class="jie01">内容<Input type=radio name=job Onclick='KCBG.style.display="";'>显<Input type=radio name=job Onclick='KCBG.style.display="none";'>隐</div><Span id=KCBG style="display:none">这是详细内容</span>
+</>

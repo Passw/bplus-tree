@@ -2,3 +2,12 @@
 *.d
 *.a
 *.dSYM/
+test/bench-basic
+test/bench-bulk
+test/bench-multithread-get
+test/test-api
+test/test-bulk
+test/test-corruption
+test/test-range
+test/test-reopen
+test/test-threaded-rw

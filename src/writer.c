@@ -1,14 +1,14 @@
-#include "bplus.h"
 #include "private/writer.h"
+#include "bplus.h"
 #include "private/compressor.h"
 
-#include <fcntl.h> /* open */
-#include <unistd.h> /* close, write, read */
+#include <errno.h>    /* errno */
+#include <fcntl.h>    /* open */
+#include <stdio.h>    /* sprintf */
+#include <stdlib.h>   /* malloc, free */
+#include <string.h>   /* memset */
 #include <sys/stat.h> /* S_IWUSR, S_IRUSR */
-#include <stdlib.h> /* malloc, free */
-#include <stdio.h> /* sprintf */
-#include <string.h> /* memset */
-#include <errno.h> /* errno */
+#include <unistd.h>   /* close, write, read */
 
 int bp__writer_create(bp__writer_t *w, const char *filename)
 {
@@ -18,17 +18,18 @@ int bp__writer_create(bp__writer_t *w, const char *filename)
     /* copy filename + '\0' char */
     filename_length = strlen(filename) + 1;
     w->filename = malloc(filename_length);
-    if (w->filename == NULL) return BP_EALLOC;
+    if (w->filename == NULL)
+        return BP_EALLOC;
     memcpy(w->filename, filename, filename_length);
 
-    w->fd = open(filename,
-                 O_RDWR | O_APPEND | O_CREAT,
-                 S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-    if (w->fd == -1) goto error;
+    w->fd = open(filename, O_RDWR | O_APPEND | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+    if (w->fd == -1)
+        goto error;
 
     /* Determine filesize */
     filesize = lseek(w->fd, 0, SEEK_END);
-    if (filesize == -1) goto error;
+    if (filesize == -1)
+        goto error;
 
     w->filesize = (uint64_t) filesize;
 
@@ -46,7 +47,8 @@ int bp__writer_destroy(bp__writer_t *w)
 {
     free(w->filename);
     w->filename = NULL;
-    if (close(w->fd)) return BP_EFILE;
+    if (close(w->fd))
+        return BP_EFILE;
     return BP_OK;
 }
 
@@ -63,7 +65,8 @@ int bp__writer_fsync(bp__writer_t *w)
 int bp__writer_compact_name(bp__writer_t *w, char **compact_name)
 {
     char *filename = malloc(strlen(w->filename) + sizeof(".compact") + 1);
-    if (filename == NULL) return BP_EALLOC;
+    if (filename == NULL)
+        return BP_EALLOC;
 
     sprintf(filename, "%s.compact", w->filename);
     if (access(filename, F_OK) != -1 || errno != ENOENT) {
@@ -89,13 +92,16 @@ int bp__writer_compact_finalize(bp__writer_t *s, bp__writer_t *t)
     /* close both trees */
     bp__destroy((bp_db_t *) s);
     ret = bp_close((bp_db_t *) t);
-    if (ret != BP_OK) goto fatal;
+    if (ret != BP_OK)
+        goto fatal;
 
-    if (rename(compacted_name, name) != 0) return BP_EFILERENAME;
+    if (rename(compacted_name, name) != 0)
+        return BP_EFILERENAME;
 
     /* reopen source tree */
     ret = bp__writer_create(s, name);
-    if (ret != BP_OK) goto fatal;
+    if (ret != BP_OK)
+        goto fatal;
     ret = bp__init((bp_db_t *) s);
 
 fatal:
@@ -105,16 +111,14 @@ fatal:
     return ret;
 }
 
-int bp__writer_read(bp__writer_t *w,
-                    const enum comp_type comp,
-                    const uint64_t offset,
-                    uint64_t *size,
-                    void **data)
+int bp__writer_read(
+    bp__writer_t *w, const enum comp_type comp, const uint64_t offset, uint64_t *size, void **data)
 {
     ssize_t bytes_read;
     char *cdata;
 
-    if (w->filesize < offset + *size) return BP_EFILEREAD_OOB;
+    if (w->filesize < offset + *size)
+        return BP_EFILEREAD_OOB;
 
     /* Ignore empty reads */
     if (*size == 0) {
@@ -123,7 +127,8 @@ int bp__writer_read(bp__writer_t *w,
     }
 
     cdata = malloc(*size);
-    if (cdata == NULL) return BP_EALLOC;
+    if (cdata == NULL)
+        return BP_EALLOC;
 
     bytes_read = pread(w->fd, cdata, (size_t) *size, (off_t) offset);
     if ((uint64_t) bytes_read != *size) {
@@ -165,11 +170,8 @@ int bp__writer_read(bp__writer_t *w,
     return BP_OK;
 }
 
-int bp__writer_write(bp__writer_t *w,
-                     const enum comp_type comp,
-                     const void *data,
-                     uint64_t *offset,
-                     uint64_t *size)
+int bp__writer_write(
+    bp__writer_t *w, const enum comp_type comp, const void *data, uint64_t *offset, uint64_t *size)
 {
     ssize_t written;
     uint32_t padding = sizeof(w->padding) - (w->filesize % sizeof(w->padding));
@@ -177,13 +179,15 @@ int bp__writer_write(bp__writer_t *w,
     /* Write padding */
     if (padding != sizeof(w->padding)) {
         written = write(w->fd, &w->padding, (size_t) padding);
-        if ((uint32_t) written != padding) return BP_EFILEWRITE;
+        if ((uint32_t) written != padding)
+            return BP_EFILEWRITE;
         w->filesize += padding;
     }
 
     /* Ignore empty writes */
     if (size == NULL || *size == 0) {
-        if (offset != NULL) *offset = w->filesize;
+        if (offset != NULL)
+            *offset = w->filesize;
         return BP_OK;
     }
 
@@ -195,7 +199,8 @@ int bp__writer_write(bp__writer_t *w,
         size_t max_csize = bp__max_compressed_size(*size);
         size_t result_size;
         char *compressed = malloc(max_csize);
-        if (compressed == NULL) return BP_EALLOC;
+        if (compressed == NULL)
+            return BP_EALLOC;
 
         result_size = max_csize;
         ret = bp__compress(data, *size, compressed, &result_size);
@@ -209,7 +214,8 @@ int bp__writer_write(bp__writer_t *w,
         free(compressed);
     }
 
-    if ((uint64_t) written != *size) return BP_EFILEWRITE;
+    if ((uint64_t) written != *size)
+        return BP_EFILEWRITE;
 
     /* change offset */
     *offset = w->filesize;
@@ -218,7 +224,7 @@ int bp__writer_write(bp__writer_t *w,
     return BP_OK;
 }
 
-int bp__writer_find(bp__writer_t*w,
+int bp__writer_find(bp__writer_t *w,
                     const enum comp_type comp,
                     const uint64_t size,
                     void *data,
@@ -231,7 +237,8 @@ int bp__writer_find(bp__writer_t*w,
 
     /* Write padding first */
     ret = bp__writer_write(w, kNotCompressed, NULL, NULL, NULL);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     offset = w->filesize;
     size_tmp = size;
@@ -239,7 +246,8 @@ int bp__writer_find(bp__writer_t*w,
     /* Start seeking from bottom of file */
     while (offset >= size) {
         ret = bp__writer_read(w, comp, offset - size, &size_tmp, &data);
-        if (ret != BP_OK) break;
+        if (ret != BP_OK)
+            break;
 
         /* Break if matched */
         if (seek(w, data) == 0) {

@@ -1,6 +1,6 @@
+#include <assert.h> /* assert */
 #include <stdlib.h> /* malloc, free */
 #include <string.h> /* memcpy */
-#include <assert.h> /* assert */
 
 #include "bplus.h"
 #include "private/pages.h"
@@ -16,7 +16,8 @@ int bp__page_create(bp_db_t *t,
     bp__page_t *p;
 
     p = malloc(sizeof(*p) + sizeof(p->keys[0]) * (t->head.page_size - 1));
-    if (p == NULL) return BP_EALLOC;
+    if (p == NULL)
+        return BP_EALLOC;
 
     p->type = type;
     if (type == kLeaf) {
@@ -67,7 +68,8 @@ int bp__page_clone(bp_db_t *t, bp__page_t *page, bp__page_t **clone)
 {
     int ret = BP_OK;
     ret = bp__page_create(t, page->type, page->offset, page->config, clone);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     (*clone)->is_head = page->is_head;
 
@@ -75,12 +77,14 @@ int bp__page_clone(bp_db_t *t, bp__page_t *page, bp__page_t **clone)
     for (uint64_t i = 0; i < page->length; i++) {
         ret = bp__kv_copy(&page->keys[i], &(*clone)->keys[i], 1);
         (*clone)->length++;
-        if (ret != BP_OK) break;
+        if (ret != BP_OK)
+            break;
     }
     (*clone)->byte_size = page->byte_size;
 
     /* if failed - free memory for all allocated keys */
-    if (ret != BP_OK) bp__page_destroy(t, *clone);
+    if (ret != BP_OK)
+        bp__page_destroy(t, *clone);
 
     return ret;
 }
@@ -99,8 +103,9 @@ int bp__page_read(bp_db_t *t, bp__page_t *page)
     page->type = page->config & 1 ? kLeaf : kPage;
 
     /* Read page data */
-    ret = bp__writer_read(w, kCompressed, page->offset, &size, (void**) &buff);
-    if (ret != BP_OK) return ret;
+    ret = bp__writer_read(w, kCompressed, page->offset, &size, (void **) &buff);
+    if (ret != BP_OK)
+        return ret;
 
     /* Parse data */
     i = 0;
@@ -126,16 +131,14 @@ int bp__page_read(bp_db_t *t, bp__page_t *page)
     return BP_OK;
 }
 
-int bp__page_load(bp_db_t *t,
-                  const uint64_t offset,
-                  const uint64_t config,
-                  bp__page_t **page)
+int bp__page_load(bp_db_t *t, const uint64_t offset, const uint64_t config, bp__page_t **page)
 {
     int ret;
 
     bp__page_t *new_page;
     ret = bp__page_create(t, 0, offset, config, &new_page);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     ret = bp__page_read(t, new_page);
     if (ret != BP_OK) {
@@ -161,7 +164,8 @@ int bp__page_save(bp_db_t *t, bp__page_t *page)
 
     /* Allocate space for serialization (header + keys); */
     buff = malloc(page->byte_size);
-    if (buff == NULL) return BP_EALLOC;
+    if (buff == NULL)
+        return BP_EALLOC;
 
     o = 0;
     for (i = 0; i < page->length; i++) {
@@ -178,29 +182,17 @@ int bp__page_save(bp_db_t *t, bp__page_t *page)
     assert(o == page->byte_size);
 
     page->config = page->byte_size;
-    ret = bp__writer_write(w,
-                           kCompressed,
-                           buff,
-                           &page->offset,
-                           &page->config);
+    ret = bp__writer_write(w, kCompressed, buff, &page->offset, &page->config);
     page->config = (page->config << 1) | (page->type == kLeaf);
 
     free(buff);
     return ret;
 }
 
-
-int bp__page_load_value(bp_db_t *t,
-                        bp__page_t *page,
-                        const uint64_t index,
-                        bp_value_t *value)
+int bp__page_load_value(bp_db_t *t, bp__page_t *page, const uint64_t index, bp_value_t *value)
 {
-    return bp__value_load(t,
-                          page->keys[index].offset,
-                          page->keys[index].config,
-                          value);
+    return bp__value_load(t, page->keys[index].offset, page->keys[index].config, value);
 }
-
 
 int bp__page_save_value(bp_db_t *t,
                         bp__page_t *page,
@@ -221,12 +213,14 @@ int bp__page_save_value(bp_db_t *t,
             bp_value_t prev_value;
 
             ret = bp__page_load_value(t, page, index, &prev_value);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
 
             ret = update_cb(arg, &prev_value, value);
             free(prev_value.value);
 
-            if (!ret) return BP_EUPDATECONFLICT;
+            if (!ret)
+                return BP_EUPDATECONFLICT;
         }
         previous.offset = page->keys[index].offset;
         previous.length = page->keys[index].config;
@@ -238,12 +232,9 @@ int bp__page_save_value(bp_db_t *t,
     tmp.length = key->length;
 
     /* store value */
-    ret = bp__value_save(t,
-                         value,
-                         cmp == 0 ? &previous : NULL,
-                         &tmp.offset,
-                         &tmp.config);
-    if (ret != BP_OK) return ret;
+    ret = bp__value_save(t, value, cmp == 0 ? &previous : NULL, &tmp.offset, &tmp.config);
+    if (ret != BP_OK)
+        return ret;
 
     /* Shift all keys right */
     bp__page_shiftr(t, page, index);
@@ -278,9 +269,10 @@ int bp__page_search(bp_db_t *t,
 
     while (i < page->length) {
         /* left key is always lower in non-leaf nodes */
-        cmp = t->compare_cb((bp_key_t*) &page->keys[i], key);
+        cmp = t->compare_cb((bp_key_t *) &page->keys[i], key);
 
-        if (cmp >= 0) break;
+        if (cmp >= 0)
+            break;
         i++;
     }
 
@@ -293,14 +285,13 @@ int bp__page_search(bp_db_t *t,
         return BP_OK;
     } else {
         assert(i > 0);
-        if (cmp != 0) i--;
+        if (cmp != 0)
+            i--;
 
         if (type == kLoad) {
-            ret = bp__page_load(t,
-                                page->keys[i].offset,
-                                page->keys[i].config,
-                                &child);
-            if (ret != BP_OK) return ret;
+            ret = bp__page_load(t, page->keys[i].offset, page->keys[i].config, &child);
+            if (ret != BP_OK)
+                return ret;
 
             result->child = child;
         } else {
@@ -313,18 +304,17 @@ int bp__page_search(bp_db_t *t,
     }
 }
 
-int bp__page_get(bp_db_t *t,
-                 bp__page_t *page,
-                 const bp_key_t *key,
-                 bp_value_t *value)
+int bp__page_get(bp_db_t *t, bp__page_t *page, const bp_key_t *key, bp_value_t *value)
 {
     int ret;
     bp__page_search_res_t res;
     ret = bp__page_search(t, page, key, kLoad, &res);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     if (res.child == NULL) {
-        if (res.cmp != 0) return BP_ENOTFOUND;
+        if (res.cmp != 0)
+            return BP_ENOTFOUND;
 
         return bp__page_load_value(t, page, res.index, value);
     } else {
@@ -349,43 +339,48 @@ int bp__page_get_range(bp_db_t *t,
 
     /* find start and end indexes */
     ret = bp__page_search(t, page, start, kNotLoad, &start_res);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
     ret = bp__page_search(t, page, end, kNotLoad, &end_res);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     if (page->type == kLeaf) {
         /* on leaf pages end-key should always be greater or equal than first key */
-        if (end_res.cmp > 0 && end_res.index == 0) return BP_OK;
+        if (end_res.cmp > 0 && end_res.index == 0)
+            return BP_OK;
 
-        if (end_res.cmp < 0) end_res.index--;
+        if (end_res.cmp < 0)
+            end_res.index--;
     }
 
     /* go through each page item */
     for (i = start_res.index; i <= end_res.index; i++) {
         /* run filter */
-        if (!filter(arg, (bp_key_t *) &page->keys[i])) continue;
+        if (!filter(arg, (bp_key_t *) &page->keys[i]))
+            continue;
 
         if (page->type == kPage) {
             /* load child page and apply range get to it */
-            bp__page_t* child;
+            bp__page_t *child;
 
-            ret = bp__page_load(t,
-                                page->keys[i].offset,
-                                page->keys[i].config,
-                                &child);
-            if (ret != BP_OK) return ret;
+            ret = bp__page_load(t, page->keys[i].offset, page->keys[i].config, &child);
+            if (ret != BP_OK)
+                return ret;
 
             ret = bp__page_get_range(t, child, start, end, filter, cb, arg);
 
             /* destroy child regardless of error */
             bp__page_destroy(t, child);
 
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
         } else {
             /* load value and pass it to callback */
             bp_value_t value;
             ret = bp__page_load_value(t, page, i, &value);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
 
             cb(arg, (bp_key_t *) &page->keys[i], &value);
 
@@ -406,19 +401,14 @@ int bp__page_insert(bp_db_t *t,
     int ret;
     bp__page_search_res_t res;
     ret = bp__page_search(t, page, key, kLoad, &res);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     if (res.child == NULL) {
         /* store value in db file to get offset and config */
-        ret = bp__page_save_value(t,
-                                  page,
-                                  res.index,
-                                  res.cmp,
-                                  key,
-                                  value,
-                                  update_cb,
-                                  arg);
-        if (ret != BP_OK) return ret;
+        ret = bp__page_save_value(t, page, res.index, res.cmp, key, value, update_cb, arg);
+        if (ret != BP_OK)
+            return ret;
     } else {
         /* Insert kv in child page */
         ret = bp__page_insert(t, res.child, key, value, update_cb, arg);
@@ -443,7 +433,8 @@ int bp__page_insert(bp_db_t *t,
     if (page->length == t->head.page_size) {
         if (page->is_head) {
             ret = bp__page_split_head(t, &page);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
         } else {
             /* Notify caller that it should split page */
             return BP_ESPLITPAGE;
@@ -453,7 +444,8 @@ int bp__page_insert(bp_db_t *t,
     assert(page->length < t->head.page_size);
 
     ret = bp__page_save(t, page);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     return BP_OK;
 }
@@ -470,47 +462,33 @@ int bp__page_bulk_insert(bp_db_t *t,
     int ret;
     bp__page_search_res_t res;
 
-    while (*count > 0 &&
-            (limit == NULL || t->compare_cb(limit, *keys) > 0)) {
-
+    while (*count > 0 && (limit == NULL || t->compare_cb(limit, *keys) > 0)) {
         ret = bp__page_search(t, page, *keys, kLoad, &res);
-        if (ret != BP_OK) return ret;
+        if (ret != BP_OK)
+            return ret;
 
         if (res.child == NULL) {
             /* store value in db file to get offset and config */
-            ret = bp__page_save_value(t,
-                                      page,
-                                      res.index,
-                                      res.cmp,
-                                      *keys,
-                                      *values,
-                                      update_cb,
-                                      arg);
+            ret = bp__page_save_value(t, page, res.index, res.cmp, *keys, *values, update_cb, arg);
             /*
              * ignore update conflicts, to handle situations where
              * only one kv failed in a bulk
              */
-            if (ret != BP_OK && ret != BP_EUPDATECONFLICT) return ret;
+            if (ret != BP_OK && ret != BP_EUPDATECONFLICT)
+                return ret;
 
             *keys = *keys + 1;
             *values = *values + 1;
             *count = *count - 1;
         } else {
             /* we're in regular page */
-            bp_key_t* new_limit = NULL;
+            bp_key_t *new_limit = NULL;
 
             if (res.index + 1 < page->length) {
-                new_limit = (bp_key_t*) &page->keys[res.index + 1];
+                new_limit = (bp_key_t *) &page->keys[res.index + 1];
             }
 
-            ret = bp__page_bulk_insert(t,
-                                       res.child,
-                                       new_limit,
-                                       count,
-                                       keys,
-                                       values,
-                                       update_cb,
-                                       arg);
+            ret = bp__page_bulk_insert(t, res.child, new_limit, count, keys, values, update_cb, arg);
             if (ret == BP_ESPLITPAGE) {
                 ret = bp__page_split(t, page, res.index, res.child);
             } else if (ret == BP_OK) {
@@ -522,13 +500,15 @@ int bp__page_bulk_insert(bp_db_t *t,
             bp__page_destroy(t, res.child);
             res.child = NULL;
 
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
         }
 
         if (page->length == t->head.page_size) {
             if (page->is_head) {
                 ret = bp__page_split_head(t, &page);
-                if (ret != BP_OK) return ret;
+                if (ret != BP_OK)
+                    return ret;
             } else {
                 /* Notify caller that it should split page */
                 return BP_ESPLITPAGE;
@@ -541,35 +521,36 @@ int bp__page_bulk_insert(bp_db_t *t,
     return bp__page_save(t, page);
 }
 
-int bp__page_remove(bp_db_t *t,
-                    bp__page_t *page,
-                    const bp_key_t *key,
-                    bp_remove_cb remove_cb,
-                    void *arg)
+int bp__page_remove(bp_db_t *t, bp__page_t *page, const bp_key_t *key, bp_remove_cb remove_cb, void *arg)
 {
     int ret;
     bp__page_search_res_t res;
     ret = bp__page_search(t, page, key, kLoad, &res);
-    if (ret != BP_OK) return ret;
+    if (ret != BP_OK)
+        return ret;
 
     if (res.child == NULL) {
-        if (res.cmp != 0) return BP_ENOTFOUND;
+        if (res.cmp != 0)
+            return BP_ENOTFOUND;
 
         /* remove only if remove_cb returns BP_OK */
         if (remove_cb != NULL) {
             bp_value_t prev_val;
 
             ret = bp__page_load_value(t, page, res.index, &prev_val);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
 
             ret = remove_cb(arg, &prev_val);
             free(prev_val.value);
 
-            if (!ret) return BP_EREMOVECONFLICT;
+            if (!ret)
+                return BP_EREMOVECONFLICT;
         }
         bp__page_remove_idx(t, page, res.index);
 
-        if (page->length == 0 && !page->is_head) return BP_EEMPTYPAGE;
+        if (page->length == 0 && !page->is_head)
+            return BP_EEMPTYPAGE;
     } else {
         /* Insert kv in child page */
         ret = bp__page_remove(t, res.child, key, remove_cb, arg);
@@ -596,7 +577,8 @@ int bp__page_remove(bp_db_t *t,
 
                 /* and load child as current page */
                 ret = bp__page_read(t, page);
-                if (ret != BP_OK) return ret;
+                if (ret != BP_OK)
+                    return ret;
             }
         } else {
             /* Update offsets in page */
@@ -619,14 +601,13 @@ int bp__page_copy(bp_db_t *source, bp_db_t *target, bp__page_t *page)
         if (page->type == kPage) {
             /* copy child page */
             bp__page_t *child;
-            ret = bp__page_load(source,
-                                page->keys[i].offset,
-                                page->keys[i].config,
-                                &child);
-            if (ret != BP_OK) return ret;
+            ret = bp__page_load(source, page->keys[i].offset, page->keys[i].config, &child);
+            if (ret != BP_OK)
+                return ret;
 
             ret = bp__page_copy(source, target, child);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
 
             /* update child position */
             page->keys[i].offset = child->offset;
@@ -638,24 +619,21 @@ int bp__page_copy(bp_db_t *source, bp_db_t *target, bp__page_t *page)
             bp_value_t value;
 
             ret = bp__page_load_value(source, page, i, &value);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
 
             page->keys[i].config = value.length;
-            ret = bp__value_save(target,
-                                 &value,
-                                 NULL,
-                                 &page->keys[i].offset,
-                                 &page->keys[i].config);
+            ret = bp__value_save(target, &value, NULL, &page->keys[i].offset, &page->keys[i].config);
 
             /* value is not needed anymore */
             free(value.value);
-            if (ret != BP_OK) return ret;
+            if (ret != BP_OK)
+                return ret;
         }
     }
 
     return bp__page_save(target, page);
 }
-
 
 int bp__page_remove_idx(bp_db_t *t, bp__page_t *page, const uint64_t index)
 {
@@ -676,11 +654,7 @@ int bp__page_remove_idx(bp_db_t *t, bp__page_t *page, const uint64_t index)
     return BP_OK;
 }
 
-
-int bp__page_split(bp_db_t *t,
-                   bp__page_t *parent,
-                   const uint64_t index,
-                   bp__page_t *child)
+int bp__page_split(bp_db_t *t, bp__page_t *parent, const uint64_t index, bp__page_t *child)
 {
     int ret;
     uint64_t i, middle;
@@ -692,14 +666,16 @@ int bp__page_split(bp_db_t *t,
 
     middle = t->head.page_size >> 1;
     ret = bp__kv_copy(&child->keys[middle], &middle_key, 1);
-    if (ret != BP_OK) goto fatal;
+    if (ret != BP_OK)
+        goto fatal;
 
     /* non-leaf nodes has byte_size > 0 nullify it first */
     left->byte_size = 0;
     left->length = 0;
     for (i = 0; i < middle; i++) {
         ret = bp__kv_copy(&child->keys[i], &left->keys[left->length++], 1);
-        if (ret != BP_OK) goto fatal;
+        if (ret != BP_OK)
+            goto fatal;
         left->byte_size += BP__KV_SIZE(child->keys[i]);
     }
 
@@ -707,16 +683,19 @@ int bp__page_split(bp_db_t *t,
     right->length = 0;
     for (; i < t->head.page_size; i++) {
         ret = bp__kv_copy(&child->keys[i], &right->keys[right->length++], 1);
-        if (ret != BP_OK) goto fatal;
+        if (ret != BP_OK)
+            goto fatal;
         right->byte_size += BP__KV_SIZE(child->keys[i]);
     }
 
     /* save left and right parts to get offsets */
     ret = bp__page_save(t, left);
-    if (ret != BP_OK) goto fatal;
+    if (ret != BP_OK)
+        goto fatal;
 
     ret = bp__page_save(t, right);
-    if (ret != BP_OK) goto fatal;
+    if (ret != BP_OK)
+        goto fatal;
 
     /* store offsets with middle key */
     middle_key.offset = right->offset;
@@ -767,7 +746,8 @@ void bp__page_shiftr(bp_db_t *t, bp__page_t *p, const uint64_t index)
         for (uint64_t i = p->length - 1; i >= index; i--) {
             bp__kv_copy(&p->keys[i], &p->keys[i + 1], 0);
 
-            if (i == 0) break;
+            if (i == 0)
+                break;
         }
     }
 }
